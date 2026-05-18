@@ -56,7 +56,7 @@ st.title("The Ultimate Parser App 🚀")
 st.subheader("Visualizador interactivo de parsers sintácticos LL(1), Descenso Recursivo, SLR(1), LR(1) y LALR(1)")
 
 # Definición de pestañas principales
-tab_parser, tab_rubrica = st.tabs(["🚀 Analizador Sintáctico", "📋 Requerimientos y Rúbrica"])
+tab_parser, tab_rubrica, tab_rendimiento = st.tabs(["🚀 Analizador Sintáctico", "📋 Requerimientos y Rúbrica", "📊 Comparativa de Rendimiento"])
 
 with tab_parser:
     st.subheader("Resultados del Análisis")
@@ -194,6 +194,60 @@ if analyze_btn:
 
         # Éxito
         st.success("¡Análisis sintáctico completado exitosamente! 🎉")
+
+        with tab_rendimiento:
+            st.markdown("### 📊 Comparativa de Rendimiento")
+            st.info("Ejecutando la gramática y cadena en todos los motores de parsing...")
+            
+            def compare_parsers(grammar: Grammar, input_tokens: list[str]):
+                results = []
+                parsers_to_test = [
+                    ("LL(1)", LL1Parser, False),
+                    ("SLR(1)", SLR1Parser, True),
+                    ("LR(1)", LR1Parser, True),
+                    ("LALR(1)", LALR1Parser, True)
+                ]
+                
+                for name, ParserClass, is_bottom_up in parsers_to_test:
+                    accepted = "No"
+                    steps = "-"
+                    states_count = "N/A"
+                    try:
+                        p = ParserClass(grammar)
+                        if is_bottom_up:
+                            states_count = len(p.states)
+                        log = p.parse(input_tokens)
+                        accepted = "Sí"
+                        steps = len(log)
+                    except SyntaxError:
+                        accepted = "Error: Sintaxis"
+                        if is_bottom_up and 'p' in locals():
+                            states_count = len(p.states)
+                    except ValueError:
+                        accepted = "Error: Conflicto"
+                    except Exception as e:
+                        accepted = "Error"
+                        
+                    results.append({
+                        "Algoritmo": name,
+                        "¿Aceptada?": accepted,
+                        "Pasos de Pila": steps,
+                        "Cantidad de Estados": states_count
+                    })
+                    
+                return results
+
+            metrics = compare_parsers(g, tokens)
+            df_metrics = pd.DataFrame(metrics)
+            
+            st.markdown("#### Tabla de Resultados")
+            st.table(df_metrics.set_index("Algoritmo"))
+            
+            bottom_up_metrics = [m for m in metrics if isinstance(m["Cantidad de Estados"], int)]
+            if bottom_up_metrics:
+                st.markdown("#### Cantidad de Estados (Bottom-Up)")
+                df_chart = pd.DataFrame(bottom_up_metrics).set_index("Algoritmo")
+                st.bar_chart(df_chart["Cantidad de Estados"])
 
     except SyntaxError as se:
         st.error("🚨 Error de Sintaxis (La cadena no pertenece al lenguaje)")
