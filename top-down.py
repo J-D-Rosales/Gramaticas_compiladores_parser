@@ -96,10 +96,7 @@ class LL1Parser:
             existing: List[str] = self.table[nt][terminal]
             if existing != production:
                 raise ValueError(
-                    f"Conflicto LL(1) en M[{nt}, {terminal}]: "
-                    f"ya tiene {nt} -> {' '.join(existing)}, "
-                    f"se intentó agregar {nt} -> {' '.join(production)}. "
-                    f"La gramática NO es LL(1)."
+                    f"Conflicto LL(1) detectado en M[{nt}, {terminal}]"
                 )
         else:
             self.table[nt][terminal] = production

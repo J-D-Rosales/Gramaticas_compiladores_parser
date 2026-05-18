@@ -183,12 +183,7 @@ class SLR1Parser:
         if symbol in self.action_table[state]:
             existing = self.action_table[state][symbol]
             if existing != action:
-                parser_name = self.__class__.__name__.replace("Parser", "")
-                raise ValueError(
-                    f"Conflicto en la tabla ACTION (Estado {state}, Símbolo '{symbol}'): "
-                    f"ya existe '{existing}', se intentó agregar '{action}'. "
-                    f"La gramática NO es {parser_name}."
-                )
+                raise ValueError("Conflicto LR detectado")
         else:
             self.action_table[state][symbol] = action
 

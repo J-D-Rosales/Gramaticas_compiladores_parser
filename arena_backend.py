@@ -28,8 +28,16 @@ except ImportError:
     pass
 
 try:
+    top_down = load_parser_module("top_down", ["top_down.py", "top-down.py"])
+    LL1Parser = top_down.LL1Parser
+except ImportError:
+    pass
+
+try:
     bottom_up = load_parser_module("bottom_up", ["bottom_up.py", "bottom-up.py"])
+    SLR1Parser = bottom_up.SLR1Parser
     LR1Parser = bottom_up.LR1Parser
+    LALR1Parser = bottom_up.LALR1Parser
 except ImportError:
     pass
 
@@ -104,29 +112,31 @@ PROBLEMS = [
 # Juez Automático
 # ─────────────────────────────────────────────────────────────────────────────
 
-def evaluar_solucion(grammar_text: str, problem_index: int) -> bool:
+def evaluar_solucion(gramatica_texto: str, lista_validas: list[str], lista_invalidas: list[str], parser_elegido: str) -> bool:
     """
     Evalúa la gramática ingresada contra las cadenas válidas e inválidas del problema.
     Retorna True si supera TODAS las pruebas, False en caso contrario.
     """
-    if problem_index < 0 or problem_index >= len(PROBLEMS):
-        return False
-        
-    problem = PROBLEMS[problem_index]
-    
     # 1. Intentar compilar la gramática
     try:
-        g = Grammar(grammar_text)
-        parser = LR1Parser(g)
-    except Exception as e:
-        # Error de sintaxis en la gramática, no es SLR(1)/LR(1), o formato inválido
+        g = Grammar(gramatica_texto)
+        if parser_elegido == "LL(1)":
+            parser = LL1Parser(g)
+        elif parser_elegido == "SLR(1)":
+            parser = SLR1Parser(g)
+        elif parser_elegido == "LALR(1)":
+            parser = LALR1Parser(g)
+        elif parser_elegido == "LR(1)":
+            parser = LR1Parser(g)
+        else:
+            return False
+    except Exception:
+        # Error de sintaxis en la gramática, no es el parser elegido, o formato inválido
         return False
         
     # 2. Evaluar cadenas válidas (DEBEN ser aceptadas)
-    for valid_str in problem["validas"]:
+    for valid_str in lista_validas:
         tokens = valid_str.strip().split()
-        # El parser ya maneja agregar el END_MARKER si no está, o lo dejamos si el usuario lo puso.
-        # Quitamos el $ de nuestra definición porque parse() se lo agrega internamente o asume que está.
         if tokens and tokens[-1] == "$":
             tokens = tokens[:-1]
             
@@ -136,7 +146,7 @@ def evaluar_solucion(grammar_text: str, problem_index: int) -> bool:
             return False # Falló en una cadena que debía aceptar
             
     # 3. Evaluar cadenas inválidas (DEBEN ser rechazadas)
-    for invalid_str in problem["invalidas"]:
+    for invalid_str in lista_invalidas:
         tokens = invalid_str.strip().split()
         if tokens and tokens[-1] == "$":
             tokens = tokens[:-1]
@@ -154,6 +164,13 @@ def evaluar_solucion(grammar_text: str, problem_index: int) -> bool:
 # Administrador Global de la Arena
 # ─────────────────────────────────────────────────────────────────────────────
 
+PARSER_POINTS = {
+    "LL(1)": 10,
+    "SLR(1)": 5,
+    "LALR(1)": 4,
+    "LR(1)": 2
+}
+
 class ArenaManager:
     """
     Controla el estado centralizado de los jugadores y las partidas.
@@ -162,7 +179,7 @@ class ArenaManager:
         self.games = {}
         self.waiting_player = None
         
-    def matchmaking(self, player_id: str):
+    def matchmaking(self, player_id: str, player_name: str):
         """
         Empareja jugadores. Si hay uno esperando, crea la partida. 
         Si no, pone al jugador en cola.
@@ -176,18 +193,22 @@ class ArenaManager:
                 return game_id
 
         # Si soy yo mismo quien está esperando, sigo en cola
-        if self.waiting_player == player_id:
+        if self.waiting_player and self.waiting_player["id"] == player_id:
+            self.waiting_player["name"] = player_name
             return None
 
         # Si hay un oponente esperando, crear la partida
         if self.waiting_player is not None:
-            opponent = self.waiting_player
+            opponent_id = self.waiting_player["id"]
+            opponent_name = self.waiting_player["name"]
             game_id = str(uuid.uuid4())
             self.games[game_id] = {
-                "p1": opponent,
+                "p1": opponent_id,
                 "p2": player_id,
-                "scores": {opponent: 0, player_id: 0},
-                "current_question": {opponent: 0, player_id: 0},
+                "p1_name": opponent_name,
+                "p2_name": player_name,
+                "scores": {opponent_id: 0, player_id: 0},
+                "current_question": {opponent_id: 0, player_id: 0},
                 "start_time": time.time(),
                 "status": "PLAYING",
                 "winner": None
@@ -197,10 +218,10 @@ class ArenaManager:
             
         # Si no hay nadie, me pongo en cola
         else:
-            self.waiting_player = player_id
+            self.waiting_player = {"id": player_id, "name": player_name}
             return None
 
-    def submit_answer(self, game_id: str, player_id: str, grammar_text: str) -> bool:
+    def submit_answer(self, game_id: str, player_id: str, grammar_text: str, parser_elegido: str = "LR(1)") -> bool:
         """
         Verifica la respuesta del jugador. Actualiza su puntuación si es correcta.
         Retorna True si acertó, False si falló.
@@ -221,10 +242,12 @@ class ArenaManager:
         if q_idx >= len(PROBLEMS):
             return False
             
-        success = evaluar_solucion(grammar_text, q_idx)
+        problem = PROBLEMS[q_idx]
+        success = evaluar_solucion(grammar_text, problem["validas"], problem["invalidas"], parser_elegido)
         
         if success:
-            game["scores"][player_id] += 100
+            puntos = PARSER_POINTS.get(parser_elegido, 2)
+            game["scores"][player_id] += puntos
             game["current_question"][player_id] += 1
             
             # Si completó todas las preguntas, gana y finaliza la partida
