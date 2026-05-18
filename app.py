@@ -8,6 +8,7 @@ import pandas as pd
 import sys
 import importlib.util
 import os
+import graphviz
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Importación Robusta (para manejar archivos con guiones o guiones bajos)
@@ -45,6 +46,26 @@ except ImportError:
     SLR1Parser = bottom_up.SLR1Parser
     LR1Parser = bottom_up.LR1Parser
     LALR1Parser = bottom_up.LALR1Parser
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Utilidad de Visualización (Grafos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def generar_grafo_automata(parser):
+    dot = graphviz.Digraph(engine="dot")
+    # rankdir="LR" hace que el grafo fluya de izquierda a derecha
+    dot.attr(rankdir="LR", size="10,8")
+    
+    for i, state in enumerate(parser.states):
+        items_str = "\n".join(str(item) for item in state)
+        label = f"Estado {i}\n{items_str}"
+        dot.node(str(i), label, shape="box", style="rounded,filled", fillcolor="#f0f2f6")
+        
+    for origin, trans in parser.transitions.items():
+        for symbol, dest in trans.items():
+            dot.edge(str(origin), str(dest), label=symbol)
+            
+    return dot
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Interfaz Gráfica (Streamlit)
@@ -186,6 +207,9 @@ if analyze_btn:
                 
             df_tables = pd.DataFrame(combined_data).set_index("Estado")
             st.dataframe(df_tables, use_container_width=True)
+            
+            with st.expander("Ver Autómata de Estados (Grafo)"):
+                st.graphviz_chart(generar_grafo_automata(parser))
             
             # Análisis Shift-Reduce Paso a Paso
             st.markdown("#### Paso a Paso (Shift-Reduce)")
