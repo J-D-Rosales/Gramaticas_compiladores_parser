@@ -1,0 +1,78 @@
+````python
+with tab_rubrica:
+    st.subheader("📘 Documentación del Proyecto")
+
+    st.markdown("""
+# 🚀 Guía de Uso Rápida
+
+Sigue estos pasos para usar el analizador de gramáticas.
+
+---
+
+## 1️⃣ Ingresa la Gramática
+
+Usa la flecha `->` para definir producciones.
+
+Ejemplo:
+
+```text
+E -> T E'
+E' -> + T E' | epsilon
+T -> id
+````
+
+---
+
+## 2️⃣ Ingresa la Cadena
+
+Escribe los tokens separados por espacios y termina con `$`.
+
+Ejemplo:
+
+```text
+id + id $
+```
+
+---
+
+## 3️⃣ Selecciona el Algoritmo
+
+Puedes probar los siguientes métodos:
+
+* LL(1)
+* Descenso Recursivo
+* SLR(1)
+* LR(1)
+* LALR(1)
+
+---
+
+# ⚠️ Reglas Importantes
+
+* Separa todos los tokens con espacios.
+* Usa `epsilon` para cadenas vacías.
+* Usa `|` para múltiples producciones.
+* No aumentes la gramática manualmente.
+
+---
+
+# 💡 Ejemplo Completo
+
+## Gramática
+
+```text
+E -> T E'
+E' -> + T E' | epsilon
+T -> id
+```
+
+## Cadena de Entrada
+
+```text
+id + id $
+```
+
+""")
+
+```
+```
