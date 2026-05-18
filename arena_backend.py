@@ -5,6 +5,9 @@ import os
 import importlib.util
 # pyrefly: ignore [missing-import]
 import streamlit as st
+import google.generativeai as genai
+
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Importación Robusta de Módulos (Grammar y Parsers)
@@ -175,6 +178,19 @@ PARSER_POINTS = {
     "LR(1)": 2
 }
 
+def obtener_pista_gemini(descripcion_problema: str) -> str:
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = (
+            f"Actúa como un profesor de teoría de compiladores. Un alumno está intentando resolver este desafío: '{descripcion_problema}'. "
+            f"Dale una pista conceptual muy breve (máximo 2 líneas) de cómo estructurar la gramática. "
+            f"NO le des la respuesta exacta ni reglas de producción directas. Usa un tono motivador."
+        )
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return "No pude conectar con el asistente IA en este momento. ¡Sigue intentándolo, tú puedes!"
+
 class ArenaManager:
     """
     Controla el estado centralizado de los jugadores y las partidas.
@@ -213,6 +229,7 @@ class ArenaManager:
                 "p2_name": player_name,
                 "scores": {opponent_id: 0, player_id: 0},
                 "current_question": {opponent_id: 0, player_id: 0},
+                "hints_used": {opponent_id: 0, player_id: 0},
                 "start_time": time.time(),
                 "status": "PLAYING",
                 "winner": None
@@ -261,6 +278,28 @@ class ArenaManager:
             return True
             
         return False
+
+    def usar_pista(self, game_id: str, player_id: str) -> str | None:
+        """
+        Consume un comodín de pista. Retorna la pista generada o None si ya agotó los 3.
+        """
+        if game_id not in self.games:
+            return None
+            
+        game = self.games[game_id]
+        if game["status"] != "PLAYING":
+            return None
+            
+        if game["hints_used"][player_id] >= 3:
+            return None
+            
+        game["hints_used"][player_id] += 1
+        
+        q_index = game["current_question"][player_id]
+        if q_index < len(PROBLEMS):
+            descripcion = PROBLEMS[q_index]["descripcion"]
+            return obtener_pista_gemini(descripcion)
+        return None
         
     def get_game_state(self, game_id: str):
         """

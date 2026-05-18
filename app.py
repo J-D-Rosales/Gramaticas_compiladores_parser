@@ -183,6 +183,16 @@ with tab_arena:
                     problem = PROBLEMS[my_q]
                     st.info(f"**Desafío {my_q + 1} / {len(PROBLEMS)}**: {problem['descripcion']}")
                     
+                    hints_used = game["hints_used"].get(player_id, 0)
+                    with st.expander(f"🪄 Pedir Pista a IA (Quedan {3 - hints_used})"):
+                        if st.button("Generar Pista", key=f"hint_btn_{my_q}"):
+                            with st.spinner("Consultando a Gemini..."):
+                                pista = manager.usar_pista(current_game_id, player_id)
+                            if pista is not None:
+                                st.info(pista)
+                            else:
+                                st.warning("Ya has agotado tus 3 comodines de IA en esta partida.")
+                    
                     def format_parser_option(p):
                         puntos = PARSER_POINTS.get(p, 2)
                         return f"{p} (+{puntos} pts)"
