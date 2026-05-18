@@ -9,6 +9,9 @@ import sys
 import importlib.util
 import os
 import graphviz
+import time
+import uuid
+from arena_backend import get_arena_manager, PROBLEMS
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Importación Robusta (para manejar archivos con guiones o guiones bajos)
@@ -77,7 +80,7 @@ st.title("The Ultimate Parser App 🚀")
 st.subheader("Visualizador interactivo de parsers sintácticos LL(1), Descenso Recursivo, SLR(1), LR(1) y LALR(1)")
 
 # Definición de pestañas principales
-tab_parser, tab_rubrica, tab_rendimiento = st.tabs(["🚀 Analizador Sintáctico", "📋 Requerimientos y Rúbrica", "📊 Comparativa de Rendimiento"])
+tab_parser, tab_rubrica, tab_rendimiento, tab_arena = st.tabs(["🚀 Analizador Sintáctico", "📋 Requerimientos y Rúbrica", "📊 Comparativa de Rendimiento", "⚔️ Arena 1v1"])
 
 with tab_parser:
     st.subheader("Resultados del Análisis")
@@ -93,6 +96,115 @@ with tab_rubrica:
         st.markdown(html_instrucciones, unsafe_allow_html=True)
     except FileNotFoundError:
         st.warning("No se encontró el archivo 'rubrica.html'. Asegúrate de crearlo en la raíz.")
+
+with tab_arena:
+    st.header("⚔️ Arena Competitiva 1v1")
+    
+    # 1. Identificación Única de Sesión
+    if "player_id" not in st.session_state:
+        st.session_state["player_id"] = str(uuid.uuid4())[:8]
+    player_id = st.session_state["player_id"]
+    
+    manager = get_arena_manager()
+    
+    current_game_id = None
+    for gid, g in manager.games.items():
+        if player_id in [g["p1"], g["p2"]] and g["status"] in ["PLAYING", "FINISHED"]:
+            current_game_id = gid
+            break
+            
+    if "searching_match" not in st.session_state:
+        st.session_state["searching_match"] = False
+
+    # 2. Flujo de Pantallas Internas
+    if not current_game_id:
+        # Estado de Espera (Lobby)
+        if not st.session_state["searching_match"]:
+            st.write("¡Bienvenido a la Arena! Enfréntate a otro jugador en tiempo real resolviendo desafíos de gramáticas.")
+            if st.button("Buscar Partida 1v1", type="primary", use_container_width=True):
+                st.session_state["searching_match"] = True
+                st.rerun()
+        else:
+            game_id = manager.matchmaking(player_id)
+            if game_id is None:
+                with st.spinner("Buscando un oponente en línea... Por favor espera."):
+                    time.sleep(2)
+                    st.rerun()
+            else:
+                st.session_state["searching_match"] = False
+                st.rerun()
+    else:
+        # Estado de Juego Activo (PLAYING) o Fin (FINISHED)
+        game = manager.get_game_state(current_game_id)
+        if not game:
+            st.error("Error al cargar la partida.")
+        elif game["status"] == "PLAYING":
+            opponent = game["p1"] if game["p2"] == player_id else game["p2"]
+            my_score = game["scores"][player_id]
+            op_score = game["scores"][opponent]
+            my_q = game["current_question"][player_id]
+            
+            time_elapsed = int(time.time() - game["start_time"])
+            time_left = max(0, 300 - time_elapsed)
+            mins, secs = divmod(time_left, 60)
+            
+            # Cabecera
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col1:
+                st.metric("Tú (Pts)", my_score)
+            with col2:
+                st.markdown(f"<h2 style='text-align: center; color: #ff4b4b;'>⏱️ {mins:02d}:{secs:02d}</h2>", unsafe_allow_html=True)
+                if st.button("🔄 Refrescar", use_container_width=True):
+                    st.rerun()
+            with col3:
+                st.metric("Rival (Pts)", op_score)
+                
+            st.divider()
+            
+            # Cuerpo
+            if my_q < len(PROBLEMS):
+                problem = PROBLEMS[my_q]
+                st.info(f"**Desafío {my_q + 1} / {len(PROBLEMS)}**: {problem['descripcion']}")
+                
+                grammar_ans = st.text_area("Escribe tu gramática aquí:", height=150, key=f"ans_{my_q}")
+                
+                # Acción del Botón
+                if st.button("Enviar Solución 🚀", use_container_width=True):
+                    success = manager.submit_answer(current_game_id, player_id, grammar_ans)
+                    if success:
+                        st.success("¡Respuesta correcta!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("❌ La gramática no es correcta (falla en las pruebas o sintaxis). Intenta de nuevo.")
+            else:
+                st.success("¡Has completado todos los desafíos! Esperando al rival o al final del tiempo...")
+                if st.button("Comprobar Estado 🔄"):
+                    st.rerun()
+                    
+        # Estado de Fin de Juego (FINISHED)
+        elif game["status"] == "FINISHED":
+            st.header("🏁 ¡Partida Finalizada!")
+            my_score = game["scores"][player_id]
+            opponent = game["p1"] if game["p2"] == player_id else game["p2"]
+            op_score = game["scores"][opponent]
+            
+            st.subheader(f"Puntuación Final: Tú {my_score} - {op_score} Rival")
+            
+            winner = game.get("winner")
+            if winner == player_id:
+                st.success("🏆 ¡Felicidades! Has ganado la arena de gramáticas.")
+                st.balloons()
+            elif winner == "TIE":
+                st.info("🤝 ¡Es un empate! Bien jugado.")
+            else:
+                st.error("💔 Has perdido esta vez. ¡Sigue practicando!")
+                
+            if st.button("Salir al Menú Principal", type="primary"):
+                del st.session_state["player_id"]
+                if "searching_match" in st.session_state:
+                    del st.session_state["searching_match"]
+                st.rerun()
 
 # --- Barra Lateral (Sidebar) ---
 with st.sidebar:
