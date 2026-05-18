@@ -44,9 +44,10 @@ except ImportError:
 # Importar Bottom-Up Parsers
 try:
     # pyrefly: ignore [missing-import]
-    from bottom_up import SLR1Parser, LR1Parser, LALR1Parser
+    from bottom_up import LR0Parser, SLR1Parser, LR1Parser, LALR1Parser
 except ImportError:
     bottom_up = load_parser_module("bottom_up", ["bottom_up.py", "bottom-up.py"])
+    LR0Parser = bottom_up.LR0Parser
     SLR1Parser = bottom_up.SLR1Parser
     LR1Parser = bottom_up.LR1Parser
     LALR1Parser = bottom_up.LALR1Parser
@@ -188,7 +189,7 @@ with tab_arena:
                     
                     parser_elegido = st.radio(
                         "Elige tu Parser (Mayor dificultad = Más puntos)", 
-                        options=["LL(1)", "SLR(1)", "LALR(1)", "LR(1)"],
+                        options=["LL(1)", "LR(0)", "SLR(1)", "LALR(1)", "LR(1)"],
                         format_func=format_parser_option,
                         horizontal=True,
                         key=f"radio_{my_q}"
@@ -256,7 +257,7 @@ with st.sidebar:
     
     parser_choice = st.selectbox(
         "Seleccione el Parser:", 
-        ["LL(1)", "Descenso Recursivo", "SLR(1)", "LR(1)", "LALR(1)"]
+        ["LL(1)", "Descenso Recursivo", "LR(0)", "SLR(1)", "LR(1)", "LALR(1)"]
     )
     
     analyze_btn = st.button("Analizar", type="primary", use_container_width=True)
@@ -326,8 +327,10 @@ if analyze_btn:
                 })
             st.table(pd.DataFrame(formatted_log))
             
-        elif parser_choice in ["SLR(1)", "LR(1)", "LALR(1)"]:
-            if parser_choice == "SLR(1)":
+        elif parser_choice in ["LR(0)", "SLR(1)", "LR(1)", "LALR(1)"]:
+            if parser_choice == "LR(0)":
+                parser = LR0Parser(g)
+            elif parser_choice == "SLR(1)":
                 parser = SLR1Parser(g)
             elif parser_choice == "LR(1)":
                 parser = LR1Parser(g)
@@ -371,6 +374,7 @@ if analyze_btn:
                 results = []
                 parsers_to_test = [
                     ("LL(1)", LL1Parser, False),
+                    ("LR(0)", LR0Parser, True),
                     ("SLR(1)", SLR1Parser, True),
                     ("LR(1)", LR1Parser, True),
                     ("LALR(1)", LALR1Parser, True)

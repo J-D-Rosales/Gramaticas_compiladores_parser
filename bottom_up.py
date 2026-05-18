@@ -305,6 +305,49 @@ class SLR1Parser:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Parser LR(0)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class LR0Parser(SLR1Parser):
+    """Parser ascendente LR(0) dirigido por tabla."""
+
+    def build_tables(self) -> None:
+        for i in range(len(self.states)):
+            self.action_table[i] = {}
+            self.goto_table[i] = {}
+            
+        for i, state in enumerate(self.states):
+            for item in state:
+                if item.dot == len(item.rhs):
+                    if item.lhs == self.augmented_start:
+                        self._add_action(i, END_MARKER, 'ACC')
+                    else:
+                        prod_idx = self.indexed_productions.index((item.lhs, item.rhs))
+                        action_str = f"R{prod_idx}"
+                        # En LR(0), la reducción se aplica a TODOS los terminales (incluyendo $)
+                        for a in self.terminals | {END_MARKER}:
+                            self._add_action(i, a, action_str)
+                else:
+                    a = item.rhs[item.dot]
+                    if a in self.terminals:
+                        if a in self.transitions.get(i, {}):
+                            j = self.transitions[i][a]
+                            self._add_action(i, a, f"S{j}")
+                            
+            for a in self.grammar.non_terminals:
+                if a in self.transitions.get(i, {}):
+                    self.goto_table[i][a] = self.transitions[i][a]
+
+    def _add_action(self, state: int, symbol: str, action: str) -> None:
+        if symbol in self.action_table[state]:
+            existing = self.action_table[state][symbol]
+            if existing != action:
+                raise ValueError("Conflicto LR(0) detectado")
+        else:
+            self.action_table[state][symbol] = action
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Parser LR(1) Canónico
 # ─────────────────────────────────────────────────────────────────────────────
 

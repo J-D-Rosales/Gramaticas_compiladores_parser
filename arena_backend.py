@@ -35,6 +35,7 @@ except ImportError:
 
 try:
     bottom_up = load_parser_module("bottom_up", ["bottom_up.py", "bottom-up.py"])
+    LR0Parser = bottom_up.LR0Parser
     SLR1Parser = bottom_up.SLR1Parser
     LR1Parser = bottom_up.LR1Parser
     LALR1Parser = bottom_up.LALR1Parser
@@ -122,6 +123,8 @@ def evaluar_solucion(gramatica_texto: str, lista_validas: list[str], lista_inval
         g = Grammar(gramatica_texto)
         if parser_elegido == "LL(1)":
             parser = LL1Parser(g)
+        elif parser_elegido == "LR(0)":
+            parser = LR0Parser(g)
         elif parser_elegido == "SLR(1)":
             parser = SLR1Parser(g)
         elif parser_elegido == "LALR(1)":
@@ -166,6 +169,7 @@ def evaluar_solucion(gramatica_texto: str, lista_validas: list[str], lista_inval
 
 PARSER_POINTS = {
     "LL(1)": 10,
+    "LR(0)": 8,
     "SLR(1)": 5,
     "LALR(1)": 4,
     "LR(1)": 2
